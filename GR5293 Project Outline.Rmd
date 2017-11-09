@@ -1,0 +1,134 @@
+---
+title: "GR5293 Final Project"
+author: "Sihuai Yu sy2697"
+date: "2017/10/25"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r}
+#Chapter 8 
+#1. 
+#Group member: Sihuai Yu, Jiayue Wang
+```
+
+
+```{r}
+#2. 
+#The URL of the dataset: https://s3.amazonaws.com/tripdata/index.html
+#There are actually many zip files in this link. We have chosen the csv file
+#named "2014-02 - Citi Bike trip data" in the first zip file.
+```
+
+
+```{r}
+#3.
+#Reason of choosing this dataset.
+#First of all, Citi Bike is not only a public transporation in US, it also 
+#has a long history in China. Recently, China has introduced the "sharing bike" 
+#service in most of the major cities. We want to study this dataset to give 
+#us a better understanding of this service.
+#Second, there are latitude and longitude values in the dataset, which migh 
+#help us to draw a very fancy region plot.
+#Third, this dataset includes a huge amount of data points, which might
+#make our research more persuasive.
+#Last, the dataset is quite clear and easy to understand, and it won't 
+#take us a lot of time to do the data cleaning since our major mission is 
+#to visulize some interesting pattern.
+
+#Questions to answer.
+#First, is there any differences or relations in the usage amount in different 
+#region of New York City?
+#Second, what is the common riding duration of the citi bikes and what is the 
+#relation between this duration and the gender or age?
+#Etc....
+```
+
+
+```{r}
+#4. 
+#Load Data.
+#Actually, there were large amounts of data in the original dataset 
+#that has a value of "/N". I replaced all the "/N" with NA in order to c
+#onveniently do the data cleaning.
+library(data.table)
+library(ggplot2)
+setwd("~/Downloads/Statistical graphics/Final Project/201307-201402-citibike-tripdata")
+citibike_data <- fread("201402.csv")
+
+#Leave all the rows that have NA values in them.
+citibike_data <- na.omit(citibike_data)
+
+#Rename the rows.
+colnames(citibike_data) <- c("duration", "starttime", "stoptime", "start_id", "start_name", "start_latitude", "start_longitude", "end_id", "end_name", "end_latitude", "end_longitude", "bikeid", "usertype", "birth_year", "gender")
+
+mytime_start <- citibike_data$starttime
+mytime_stop <- citibike_data$stoptime
+
+#Transform all the date in 2nd and 3rd row into an easy-to-quantify mode.
+mytime_start = as.POSIXct(mytime_start, format = c('%m/%d/%y%H:%M'))
+mytime_stop = as.POSIXct(mytime_stop, format = c('%m/%d/%y%H:%M'))
+
+#Calculate the duration of each riding.
+citibike_data$time_dif <- difftime(mytime_stop, mytime_start, units = "auto")
+
+
+first_49 <- as.vector(table(citibike_data$time_dif)[1:49])
+sum_after_49 <- sum(as.vector(table(citibike_data$time_dif)[50:length(table(citibike_data$time_dif))]))
+
+df <- data.frame(ride_time=1:50,counts=c(first_49,sum_after_49))
+
+#First plot:
+#Barplot of the duration of each riding.
+labels <- c(1:49, "50 or more")
+
+mytheme <- theme_grey(18)
+
+ggplot(df, aes(ride_time,counts)) + geom_col(color = "white", fill = "lightblue", alpha = 1) + scale_x_discrete(limit = c(1:50), position = "bottom", labels = labels) + xlab("Duration of Riding") + ylab("Counts") + ggtitle("Duration of each Riding")
+#Pattern: From this barplot, we notice that most of the ridings are 
+#around 10 minutes and it is very rare that people will ride a bike 
+#consistantly for more than 50 minutes.
+```
+
+
+```{r}
+#Second plot:
+#Barplot of the year of birth of the riders.
+ggplot(citibike_data, aes(birth_year)) + geom_bar(color = "white", fill = "lightblue", alpha = 1) + xlab("Year of Birth") + ylab("Counts") + ggtitle("Birth Year of Riders")
+#Pattern:
+#From this barplot, we learn that most people that prefer to use the 
+#citibikes are actually younger, most were born after 1963, which means 
+#less than 50 years old by 2014. 
+```
+
+
+```{r}
+#Third plot:
+#Barplot of the gender.
+table(citibike_data$usertype)
+table(citibike_data$gender)
+ggplot(citibike_data, aes(gender)) + geom_bar(color = "white", fill = "lightblue", alpha = 1) + xlab("Gender") + ylab("Counts") + ggtitle("Gender of Riders")
+#Pattern:
+#From the table above and this plot, it is very obvious that all the 
+#riders are subscribers and most of them are male. Number of female riders 
+#equals to roughly a quarter of the number of male riders. And there are very 
+#few customers that do not give their gender information.
+```
+
+
+```{r}
+#Fourth plot:
+#Parallel lines
+library(GGally)
+Large_or_Small <- within(citibike_data,LargeorSmall<-factor(ifelse(citibike_data$start_id<=citibike_data$end_id,1,0)))
+
+ggparcoord(data = Large_or_Small[order(Large_or_Small$LargeorSmall),], columns = c(4,8),groupColumn = "LargeorSmall") + xlab("") + ylab("Station ID")
+#Pattern:
+# "1" means the ending station id is bigger than the start station id.
+#And we notice there are more riders riding from a relatively higher 
+#station id to a lower station id. There are also a proportion of riders 
+#that will borrow and return the bikes at the same station, which are told 
+#by these horizontal lines in the parallel lines.
+```
